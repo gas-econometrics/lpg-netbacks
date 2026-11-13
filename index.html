@@ -86,6 +86,20 @@ footer p { margin: 0 0 4px; }
 .info .bs { color: var(--muted); font-size: 11.5px; line-height: 1.35; margin-top: 2px; }
 @media (max-width: 900px) { .main, .charts { grid-template-columns: 1fr; } }
 
+
+.cov { overflow-x: auto; margin-top: 8px; }
+.cov table { border-collapse: separate; border-spacing: 2px; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.cov th { color: var(--ink2); font-weight: 600; font-size: 12px; padding: 4px 6px; text-align: center; white-space: nowrap; }
+.cov th.g { border-bottom: 2px solid var(--axis); }
+.cov td { width: 56px; height: 22px; text-align: center; border-radius: 4px; background: #f0efec; color: var(--muted); }
+.cov td:first-child, .cov th:first-child { text-align: left; width: auto; background: none; color: var(--ink); white-space: nowrap; padding-right: 10px; }
+.cov td.o { background: #9ec5f4; color: #0b0b0b; }
+.cov td.s { background: #1c5cab; color: #fff; }
+.cov td.a { background: var(--surface); box-shadow: inset 0 0 0 1px var(--axis); color: var(--ink2); }
+.cov tr.tot td { white-space: nowrap; background: none; color: var(--ink); font-weight: 600; border-top: 1px solid var(--axis); border-radius: 0; }
+.cov .key { display: flex; gap: 6px 16px; flex-wrap: wrap; font-size: 12px; color: var(--ink2); margin-top: 8px; align-items: center; }
+.cov .key i { display: inline-block; width: 22px; height: 14px; border-radius: 3px; vertical-align: -2px; margin-right: 5px; font-style: normal; text-align: center; font-size: 10px; line-height: 14px; }
+
 /* ---------- static fallback (no scripts, e.g. iPhone file preview) ---------- */
 #static { display: none; }
 html.nojs .app { display: none; }
@@ -177,6 +191,7 @@ body.mobile .tip { display: none; }
       <div class="ptsel" id="ptsel2"></div><svg id="c2" class="chart" role="img" aria-label="Транспорт по месяцам"></svg></div>
     <div class="card wide"><div class="head"><h2 id="c3title"></h2><div class="cl" id="c3leg"></div></div>
       <svg id="c3" class="chart" role="img" aria-label="Сравнение котировок market price и ex-work"></svg><div class="fn" id="c3fn"></div></div>
+    <div class="card wide" id="covcard" style="display:none"><div class="head"><h2>Покрытие платформ по провинциям</h2></div><div class="cov" id="cov"></div></div>
   </div>
   <footer id="foot"></footer>
 </div>
@@ -645,8 +660,30 @@ function update(full) {
   $('maptitle').textContent = measTitle();
   $('notice').textContent = (state.sec === 'cu' || isD()) && state.m > LASTCU ? 'таможенные данные — по сентябрь' : (state.geo || !GEO_EMBED ? '' : $('notice').textContent);
   drawLegend(); drawRank(); drawCharts();
+  $('covcard').style.display = isC() ? '' : 'none';
   if (MOBILE) $('details').innerHTML = infoHTML(state.sel, state.m);
 }
+
+const COV = {"rows": [["Пекин", "●", "", "●", "○", "", "", "", "", "", "", "", ""], ["Тяньцзинь", "●", "", "●", "○", "●", "", "●", "○", "", "", "●", ""], ["Хэбэй", "●", "", "●", "○", "", "", "●", "○", "", "", "●", "○"], ["Внутренняя Монголия", "", "", "●", "○", "", "", "●", "○", "", "", "", ""], ["Ляонин", "●", "", "●", "○", "", "", "●", "○", "", "", "●", ""], ["Цзилинь", "●", "", "●", "●", "", "", "", "", "", "", "", ""], ["Хэйлунцзян", "●", "", "●", "●", "", "", "●", "●", "", "", "", ""], ["Шанхай", "●", "", "●", "○", "", "", "●", "○", "", "", "", ""], ["Цзянсу", "●", "", "●", "○", "", "", "●", "○", "", "", "", ""], ["Чжэцзян", "●", "", "●", "○", "", "", "○³", "○", "", "", "", ""], ["Фуцзянь", "●", "", "●", "○", "●¹", "", "", "", "", "", "", ""], ["Цзянси", "●", "", "●", "○", "", "", "●", "○", "", "", "", ""], ["Шаньдун", "●", "●", "●", "●", "●", "●", "●", "●", "●", "●", "●", "●"], ["Хубэй", "●", "", "●", "", "", "", "●", "○", "", "", "●", "○"], ["Гуандун", "●", "", "●", "○", "", "", "●²", "", "", "", "", ""], ["Гуанси", "●", "", "●", "", "", "", "", "", "", "", "", ""], ["Хайнань", "●", "", "●", "", "", "", "", "", "", "", "", ""], ["Синьцзян", "●", "", "●", "", "", "", "●", "○", "", "", "", ""], ["Хунань", "●", "", "●", "", "", "", "", "○", "", "", "", ""]], "totals": ["18", "1", "19", "3 + 11○", "3", "1", "12 + 1○", "2 + 11○", "1", "1", "5", "1 + 2○"]};
+function drawCov() {
+  const prods = ['LPG', 'Пропан', 'Бутан'], types = ['рынок', 'заводы'];
+  let h = '<table><thead><tr><th></th>' + prods.map(p => `<th colspan="4" class="g">${p}</th>`).join('') + '</tr><tr><th></th>'
+    + prods.map(() => types.map(t => `<th colspan="2">${t}</th>`).join('')).join('') + '</tr><tr><th>Провинция</th>'
+    + prods.map(() => types.map(() => '<th>Oilchem</th><th>SCI</th>').join('')).join('') + '</tr></thead><tbody>';
+  COV.rows.forEach(r => { h += '<tr><td>' + r[0] + '</td>' + r.slice(1).map((v, i) => {
+    const cls = v.startsWith('●') ? (i % 2 ? 's' : 'o') : v.startsWith('○') ? 'a' : '';
+    return `<td class="${cls}">${v}</td>`; }).join('') + '</tr>'; });
+  h += '<tr class="tot"><td>Итого провинций</td>' + COV.totals.map(v => `<td>${v}</td>`).join('') + '</tr></tbody></table>';
+  h += '<div class="key"><span><i style="background:#9ec5f4">●</i>Oilchem — данные есть, на карте</span><span><i style="background:#1c5cab;color:#fff">●</i>SCI — данные есть, на карте</span>'
+    + '<span><i style="box-shadow:inset 0 0 0 1px var(--axis)">○</i>есть по таблице наличия, выгрузки нет</span></div>'
+    + '<div class="fn">Рынок — рыночная котировка (Oilchem: город расчета, иначе провинция; SCI: только Шаньдун, региональные цены SCI не используются). Заводы — средняя цена заводов провинции (ex-work). '
+    + 'Цены одних и тех же заводов на двух платформах совпадают: это одни и те же прайс-листы. '
+    + '¹ Фучжоу — импортный пропан. ² Гуандун — цены импортных терминалов, нетбэк по пропану завышен. ³ В выгрузке Oilchem по Чжэцзяну цен нет. '
+    + 'Внутренняя Монголия: рыночная котировка Oilchem — олефиновая фракция C4, а не LPG, в расчет не входит.</div>';
+  $('cov').innerHTML = h;
+}
+drawCov();
+
 function selectProv(code) { if (state.sel !== code) state.pt = 0; state.sel = code; update(); }
 function setMonth(m) { state.m = m; $('m').value = m; update(); }
 function seg(id, key, full, after) {
